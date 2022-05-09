@@ -8,32 +8,39 @@ if (process.argv.length < 3) {
 const password = process.argv[2]
 
 const url =
-  `mongodb+srv://AlboMastro:${password}@hellocluster.r8b64.mongodb.net/noteApp?retryWrites=true&w=majority`
+  `mongodb+srv://AlboMastro:${password}@hellocluster.r8b64.mongodb.net/phonebook?retryWrites=true&w=majority`
 
-mongoose.connect(url)
-
-const noteSchema = new mongoose.Schema({
-  content: String,
+const personSchema = new mongoose.Schema({
+  name: String,
+  number: String,
   date: Date,
-  important: Boolean,
 })
 
-const Note = mongoose.model('Note', noteSchema)
+const Person = mongoose.model('Person', personSchema)
 
-const note = new Note({
-  content: 'HTML is Easy',
-  date: new Date(),
-  important: true,
-})
+process.argv.forEach((name, number) => {
 
-// note.save().then(result => {
-//   console.log('note saved!')
-//   mongoose.connection.close()
-// })
+  name = process.argv[3];
+  number = process.argv[4];
+  mongoose.connect(url)
 
-Note.find({}).then((result) => {
-  result.forEach((note) => {
-    console.log(note);
-  });
-  mongoose.connection.close();
-});
+  const person = new Person({
+    id: Number,
+    name: name,
+    number: number,
+    date: new Date()
+  })
+
+  person.save()
+    .then(result => {
+    console.log(`Added ${person.name} with number ${person.number} to phonebook`)
+    mongoose.connection.close()
+  })
+}) 
+
+// Person.find({}).then((result) => {
+//   result.forEach((person) => {
+//     console.log(person);
+//   });
+//   mongoose.connection.close();
+// });
