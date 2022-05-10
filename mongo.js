@@ -25,7 +25,6 @@ if (process.argv.length > 3) {
   const number = process.argv[4];
 
   const person = new Person({
-    id: Number,
     name: name,
     number: number,
     date: new Date(),
