@@ -1,3 +1,4 @@
+require('dotenv').config()
 const express = require('express')
 const morgan = require('morgan');
 const cors = require('cors')
@@ -10,94 +11,47 @@ app.use(express.static('build'))
 morgan.token('body', (req) => JSON.stringify(req.body))
 app.use(morgan('tiny'));
 
-let persons = [
-  { 
-    "id": 1,
-    "name": "Arto Hellas", 
-    "number": "040-123456"
-  },
-  { 
-    "id": 2,
-    "name": "Ada Lovelace", 
-    "number": "39-44-5323523"
-  },
-  { 
-    "id": 3,
-    "name": "Dan Abramov", 
-    "number": "12-43-234345"
-  },
-  { 
-    "id": 4,
-    "name": "Mary Poppendieck", 
-    "number": "39-23-6423122"
-  }
-]
+const Person = require('./models/person')
 
 app.get('/api/persons', (request, response) => {
-  response.json(persons)
+  Person.find({}).then(person => {
+    response.json(person)
+  }) 
 })
 
-app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    const person = persons.find(person => person.id === id)
-    
+app.get("/api/persons/:id", (request, response) => {
+  Person.findById(request.params.id).then((person) => {
     if (person) {
-        response.json(person)
+      response.json(person);
     } else {
-        response.status(404).end()
+      response.status(404).end();
     }
-})
-
-app.get('/api/info', (request, response) => {
-  response.status(200).send(
-    `<h3 style="color: yellow">Persons has ${persons.length} entries.</h3>
-    ${new Date()}
-    `
-  );
-})
-
-app.delete("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  persons = persons.filter((person) => person.id !== id);
-
-  response.status(204).end();
+  });
 });
-
-app.put("")
-
-const generateId = () => {
-  const maxId = persons.length > 0 ? Math.max(...persons.map((n) => n.id)) : 0;
-  return maxId + 1;
-}
-
-
 
 app.post("/api/persons", morgan(':body'), (request, response) => {
   const body = request.body;
-  const existingNames = persons.map(person => names = person.name)
 
   if (!body.name || !body.number) {
     return response.status(400).json({
       error: "Name and/or number missing",
     });
-  } else if (existingNames.includes(body.name)) {
-    return response.status(400).json({
-      error: "Person already exists",
-    })
   }
 
-  const person = {
-    id: generateId(),
+  const person = new Person({
     name: body.name,
-    number: body.number
-  };
+    number: body.number,
+    date: new Date()
+  });
 
-  persons = persons.concat(person);
 
-  response.json(person);
+  person.save()
+    .then(savedPerson => {
+    response.json(savedPerson)
+  })
 });
 
-const PORT = process.env.PORT || 3001
+const PORT = process.env.PORT 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)
 })
