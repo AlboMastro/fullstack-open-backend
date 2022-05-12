@@ -3,32 +3,6 @@ const express = require('express')
 const morgan = require('morgan');
 const cors = require('cors')
 
-const errorHandler = (error, request, response, next) => {
-  console.error(error.message);
-
-  switch (error.name) {
-    case "CastError":
-      return response.status(400).send({ error: "malformatted id" });
-      break;
-    case "ParallelSaveError":
-      return response
-        .status(409)
-        .send({ error: "conflict error" });
-      break;
-
-    case "MongooseError":
-      return response
-        .status(500)
-        .send({ error: "there was an error" });
-    default:
-      return response
-      .status(500)
-      .send("Something went wrong");
-  }
-
-  next(error);
-};
-
 const app = express();
 app.use(express.json());
 app.use(cors())
@@ -40,6 +14,37 @@ app.use(morgan('tiny'));
 
 const Person = require('./models/person');
 const { model } = require('mongoose');
+
+const errorHandler = (error, request, response, next) => {
+  console.error(error.message);
+
+  switch (error.name) {
+    case "CastError":
+      return response
+        .status(400)
+        .send({ error: "malformatted id" });
+      break;
+    case "ValidationError":
+      return response
+        .status(400)
+        .json({ error: error.message });
+      break;
+    case "ParallelSaveError":
+      return response
+        .status(409)
+        .send({ error: "conflict error" });
+      break;
+    case "MongooseError":
+      return response
+        .status(500)
+        .send({ error: "there was an error" });
+    default:
+      return response
+      .status(500)
+      .send("Something went wrong");
+  }
+  next(error);
+};
 
 app.get("/api/persons", (request, response) => {
   Person.find({}).then((person) => {
@@ -69,7 +74,6 @@ app.get("/api/persons/:id", (request, response, next) => {
   })
   .catch(error => next(error));
 });
-app.use(errorHandler);
 
 app.post("/api/persons", morgan(':body'), (request, response, next) => {
   const body = request.body;
@@ -104,21 +108,20 @@ app.delete('/api/persons/:id', (request, response, next) => {
 })
 
 app.put("/api/persons/:id", (request, response, next) => {
-  const body = request.body;
+  const { number } = request.body;
 
-  const person = {
-    name: body.name,
-    number: body.number,
-    date: new Date(),
-  };
-
-  Person.findByIdAndUpdate(request.params.id, person, { new: true })
+  Person.findByIdAndUpdate(
+    request.params.id,
+    { number },
+    { new: true, runValidators: true, context: "query" }
+  )
     .then((updatedPerson) => {
       response.json(updatedPerson);
     })
     .catch((error) => next(error));
 });
 
+app.use(errorHandler);
 const PORT = process.env.PORT 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`)
