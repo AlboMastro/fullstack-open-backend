@@ -24,7 +24,8 @@ const personSchema = new mongoose.Schema({
       validate: {
         validator: function(v) {
           return /\d{2,3}-\d{3,8}/.test(v);
-        }
+        },
+        message: props => `${props.value} doesn't respect the phone scheme (1/2 numbers - 1/8 numbers)`
       },
       required: true,
     },
