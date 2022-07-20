@@ -1,103 +1,128 @@
+require('dotenv').config()
 const express = require('express')
-const morgan = require('morgan');
+const morgan = require('morgan')
 const cors = require('cors')
 
-const app = express();
-app.use(express.json());
+const app = express()
+app.use(express.json())
 app.use(cors())
 
 app.use(express.static('build'))
 morgan.token('body', (req) => JSON.stringify(req.body))
-app.use(morgan('tiny'));
+app.use(morgan('tiny'))
 
-let persons = [
-  { 
-    "id": 1,
-    "name": "Arto Hellas", 
-    "number": "040-123456"
-  },
-  { 
-    "id": 2,
-    "name": "Ada Lovelace", 
-    "number": "39-44-5323523"
-  },
-  { 
-    "id": 3,
-    "name": "Dan Abramov", 
-    "number": "12-43-234345"
-  },
-  { 
-    "id": 4,
-    "name": "Mary Poppendieck", 
-    "number": "39-23-6423122"
-  }
-]
+
+const Person = require('./models/person')
+const { model } = require('mongoose')
+
+const errorHandler = (error, request, response, next) => {
+    console.error(error.message)
+
+    switch (error.name) {
+    case 'CastError':
+        return response
+            .status(400)
+            .send({ error: 'malformatted id' })
+        break
+    case 'ValidationError':
+        return response
+            .status(400)
+            .json({ error: error.message })
+        break
+    case 'ParallelSaveError':
+        return response
+            .status(409)
+            .send({ error: 'conflict error' })
+        break
+    case 'MongooseError':
+        return response
+            .status(500)
+            .send({ error: 'there was an error' })
+    default:
+        return response
+            .status(500)
+            .send('Something went wrong')
+    }
+    next(error)
+}
 
 app.get('/api/persons', (request, response) => {
-  response.json(persons)
-})
-
-app.get('/api/persons/:id', (request, response) => {
-    const id = Number(request.params.id)
-    const person = persons.find(person => person.id === id)
-    
-    if (person) {
+    Person.find({}).then((person) => {
         response.json(person)
-    } else {
-        response.status(404).end()
-    }
+        console.log(person.length)
+    })
+
 })
 
 app.get('/api/info', (request, response) => {
-  response.status(200).send(
-    `<h3 style="color: yellow">Persons has ${persons.length} entries.</h3>
-    ${new Date()}
-    `
-  );
+    Person.estimatedDocumentCount((err, count) => {
+        response.send(`
+    <p> Phonebook has info for ${count} people </p>
+      ${new Date()}
+    `)
+    })
 })
 
-app.delete("/api/persons/:id", (request, response) => {
-  const id = Number(request.params.id);
-  persons = persons.filter((person) => person.id !== id);
+app.get('/api/persons/:id', (request, response, next) => {
+    Person.findById(request.params.id)
+        .then((person) => {
+            if (person) {
+                response.json(person)
+            } else {
+                response.status(404).end()
+            }
+        })
+        .catch(error => next(error))
+})
 
-  response.status(204).end();
-});
+app.post('/api/persons', morgan(':body'), (request, response, next) => {
+    const body = request.body
 
-app.put("")
+    if (!body.name || !body.number) {
+        return response.status(400).json({
+            error: 'Name and/or number missing',
+        })
+    }
 
-const generateId = () => {
-  const maxId = persons.length > 0 ? Math.max(...persons.map((n) => n.id)) : 0;
-  return maxId + 1;
-}
-
-
-
-app.post("/api/persons", morgan(':body'), (request, response) => {
-  const body = request.body;
-  const existingNames = persons.map(person => names = person.name)
-
-  if (!body.name || !body.number) {
-    return response.status(400).json({
-      error: "Name and/or number missing",
-    });
-  } else if (existingNames.includes(body.name)) {
-    return response.status(400).json({
-      error: "Person already exists",
+    const person = new Person({
+        name: body.name,
+        number: body.number,
+        date: new Date()
     })
-  }
 
-  const person = {
-    id: generateId(),
-    name: body.name,
-    number: body.number
-  };
 
-  persons = persons.concat(person);
+    person.save()
+        .then(savedPerson => {
+            response.json(savedPerson)
+        })
 
-  response.json(person);
-});
+        .catch(error => next(error))
+})
 
-const PORT = process.env.PORT || 3001
+app.delete('/api/persons/:id', (request, response, next) => {
+    Person.findByIdAndRemove(request.params.id)
+        .then(result => {
+            response.status(204).end()
+        })
+        .catch(error => next(error))
+})
+
+app.put('/api/persons/:id', (request, response, next) => {
+    const { number } = request.body
+
+    Person.findByIdAndUpdate(
+        request.params.id,
+        { number },
+        { new: true, runValidators: true, context: 'query' }
+    )
+        .then((updatedPerson) => {
+            response.json(updatedPerson)
+        })
+        .catch((error) => next(error))
+})
+
+app.use(errorHandler)
+const PORT = process.env.PORT
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`)
+    console.log(`Server is running on port ${PORT}`)
 })
