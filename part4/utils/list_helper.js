@@ -22,7 +22,19 @@ const totLikes = (blogs) => {
     }
 }
 
+const favBlog = (blogs) => {
+   return blogs.length === 0 
+   ? [{}]
+   : blogs.reduce((accumulator, current, index) => {
+    if (index === 0) {
+        return current
+    };
+    return accumulator.likes > current.likes ? accumulator : current
+   });
+}
+
 module.exports = {
     dummy,
-    totLikes
+    totLikes,
+    favBlog
 }
